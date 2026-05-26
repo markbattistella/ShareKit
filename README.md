@@ -22,12 +22,17 @@ A lightweight Swift package that brings full-control sharing to SwiftUI by wrapp
 - Receive detailed completion callbacks
 - Present a fully configured share sheet from SwiftUI
 
+## Requirements
+
+- iOS 17+
+- Swift 6.0+
+
 ## Installation
 
 Add `ShareKit` to your project using Swift Package Manager.
 
 ```swift
-.package(url: "https://github.com/markbattistella/ShareKit.git", from: "1.0.0")
+.package(url: "https://github.com/markbattistella/ShareKit.git", from: "26.2.21")
 ```
 
 Then import it where needed:
@@ -113,12 +118,16 @@ UIShareLink(
 
 ### Behaviour Notes
 
-- The share sheet is presented modally using `.sheet`
-- Medium and large detents are enabled
-- Background interaction is disabled
-- Interactive dismissal is prevented to ensure callback delivery
+- The share sheet is presented as a `UIActivityViewController` from the active key window's
+  topmost UIKit view controller.
+- This direct UIKit presentation avoids scene-hosting failures seen with some share extensions
+  when `UIActivityViewController` is wrapped in a SwiftUI `.sheet`.
+- SwiftUI updates while the sheet is open are ignored so duplicate share sheets are not stacked.
+- UIKit owns dismissal and calls the completion callback with the selected activity, completion
+  state, returned items, and error.
 
-These defaults are intentional and mirror common system share behaviour.
+Because presentation is intentionally delegated to UIKit, `ShareKit` does not configure SwiftUI
+sheet detents, drag indicators, background interaction, or interactive-dismissal settings.
 
 ## Why Not `ShareLink`?
 
