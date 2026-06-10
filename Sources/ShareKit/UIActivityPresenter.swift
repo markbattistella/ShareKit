@@ -15,74 +15,75 @@ import UIKit
 @MainActor
 internal final class UIActivityPresenter {
 
-  /// The activity controller currently being presented.
-  private weak var presentedController: UIActivityViewController?
+    /// The activity controller currently being presented.
+    private weak var presentedController: UIActivityViewController?
 
-  /// Presents the share sheet for the supplied content.
-  ///
-  /// - Parameters:
-  ///   - content: The content to be shared.
-  ///   - callback: A closure invoked when the share activity completes.
-  func present(
-    content: any Shareable,
-    callback: @escaping Callback
-  ) {
-    guard presentedController == nil else { return }
-    guard let presentingVC = activePresentationController() else { return }
+    /// Presents the share sheet for the supplied content.
+    ///
+    /// - Parameters:
+    ///   - content: The content to be shared.
+    ///   - callback: A closure invoked when the share activity completes.
+    func present(
+        content: any Shareable,
+        callback: @escaping Callback
+    ) {
+        guard presentedController == nil else { return }
+        guard let presentingVC = activePresentationController() else { return }
 
-    let controller = UIActivityViewController(
-      activityItems: content.activityItems,
-      applicationActivities: content.applicationActivities
-    )
-    controller.excludedActivityTypes = content.excludedActivityTypes
-    configurePopover(for: controller, presentingFrom: presentingVC)
-    controller.completionWithItemsHandler = { [weak self] activityType, completed, returnedItems, error in
-      self?.presentedController = nil
-      callback(activityType, completed, returnedItems, error)
+        let controller = UIActivityViewController(
+            activityItems: content.activityItems,
+            applicationActivities: content.applicationActivities
+        )
+        controller.excludedActivityTypes = content.excludedActivityTypes
+        configurePopover(for: controller, presentingFrom: presentingVC)
+        controller.completionWithItemsHandler = {
+            [weak self] activityType, completed, returnedItems, error in
+            self?.presentedController = nil
+            callback(activityType, completed, returnedItems, error)
+        }
+
+        presentedController = controller
+        presentingVC.present(controller, animated: true)
     }
 
-    presentedController = controller
-    presentingVC.present(controller, animated: true)
-  }
+    // MARK: - Helpers
 
-  // MARK: - Helpers
+    private func activePresentationController() -> UIViewController? {
+        let viewController = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .first { $0.activationState == .foregroundActive }?
+            .windows
+            .first { $0.isKeyWindow }?
+            .rootViewController
+            .map(topMost(from:))
 
-  private func activePresentationController() -> UIViewController? {
-    let viewController = UIApplication.shared.connectedScenes
-      .compactMap { $0 as? UIWindowScene }
-      .first { $0.activationState == .foregroundActive }?
-      .windows
-      .first { $0.isKeyWindow }?
-      .rootViewController
-      .map(topMost(from:))
-
-    guard let viewController else { return nil }
-    guard !(viewController is UIActivityViewController) else { return nil }
-    guard !viewController.isBeingDismissed else { return nil }
-    return viewController
-  }
-
-  private func topMost(from vc: UIViewController) -> UIViewController {
-    if let presented = vc.presentedViewController {
-      return topMost(from: presented)
+        guard let viewController else { return nil }
+        guard !(viewController is UIActivityViewController) else { return nil }
+        guard !viewController.isBeingDismissed else { return nil }
+        return viewController
     }
-    return vc
-  }
 
-  private func configurePopover(
-    for controller: UIActivityViewController,
-    presentingFrom presentingVC: UIViewController
-  ) {
-    guard let popover = controller.popoverPresentationController else { return }
-    guard let sourceView = presentingVC.view else { return }
+    private func topMost(from vc: UIViewController) -> UIViewController {
+        if let presented = vc.presentedViewController {
+            return topMost(from: presented)
+        }
+        return vc
+    }
 
-    popover.sourceView = sourceView
-    popover.sourceRect = CGRect(
-      x: sourceView.bounds.midX,
-      y: sourceView.bounds.midY,
-      width: 0,
-      height: 0
-    )
-    popover.permittedArrowDirections = []
-  }
+    private func configurePopover(
+        for controller: UIActivityViewController,
+        presentingFrom presentingVC: UIViewController
+    ) {
+        guard let popover = controller.popoverPresentationController else { return }
+        guard let sourceView = presentingVC.view else { return }
+
+        popover.sourceView = sourceView
+        popover.sourceRect = CGRect(
+            x: sourceView.bounds.midX,
+            y: sourceView.bounds.midY,
+            width: 0,
+            height: 0
+        )
+        popover.permittedArrowDirections = []
+    }
 }
