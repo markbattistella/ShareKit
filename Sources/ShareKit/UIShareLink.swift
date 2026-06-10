@@ -17,9 +17,9 @@ import SwiftUI
 /// context to host their extension scene.
 public struct UIShareLink<L: View>: View {
 
-  /// Controls presentation of the share sheet.
+  /// The presenter retained across SwiftUI view updates.
   @State
-  private var isPresented = false
+  private var presenter = UIActivityPresenter()
 
   /// The content to be shared.
   private let content: any Shareable
@@ -53,17 +53,12 @@ public struct UIShareLink<L: View>: View {
   /// The content and behaviour of the view.
   public var body: some View {
     Button {
-      isPresented = true
-    } label: {
-      label()
-    }
-    .background {
-      UIActivityVC(
-        isPresented: $isPresented,
+      presenter.present(
         content: content,
         callback: callback
       )
-      .frame(width: 0, height: 0)
+    } label: {
+      label()
     }
   }
 }

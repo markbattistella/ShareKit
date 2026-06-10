@@ -4,39 +4,30 @@
 // Website: https://markbattistella.com
 //
 
-import SwiftUI
+import UIKit
 
-/// A SwiftUI representable that presents a `UIActivityViewController` from the key window's
-/// topmost view controller.
+/// Presents a `UIActivityViewController` from the active key window's topmost view controller.
 ///
 /// Presenting from the key window's root VC (rather than a SwiftUI-embedded VC) is required for
 /// scene-based share extensions. Extensions such as Bluesky use `UIHostedScene` to attach their
 /// UI to the presenting app's window scene. If the presenting VC is not properly rooted in an
 /// active `UIWindowScene`, iOS invalidates the extension's scene and it never opens.
-internal struct UIActivityVC: UIViewControllerRepresentable {
+@MainActor
+internal final class UIActivityPresenter {
 
-  /// Controls whether the share sheet is presented.
-  @Binding var isPresented: Bool
+  /// The activity controller currently being presented.
+  private weak var presentedController: UIActivityViewController?
 
-  /// The content to be shared.
-  let content: any Shareable
-
-  /// An optional completion callback invoked when the activity finishes.
-  let callback: Callback?
-
-  // MARK: - UIViewControllerRepresentable
-
-  func makeCoordinator() -> Coordinator {
-    Coordinator()
-  }
-
-  func makeUIViewController(context: Context) -> UIViewController {
-    UIViewController()
-  }
-
-  func updateUIViewController(_ viewController: UIViewController, context: Context) {
-    guard isPresented else { return }
-    guard context.coordinator.presentedController == nil else { return }
+  /// Presents the share sheet for the supplied content.
+  ///
+  /// - Parameters:
+  ///   - content: The content to be shared.
+  ///   - callback: A closure invoked when the share activity completes.
+  func present(
+    content: any Shareable,
+    callback: @escaping Callback
+  ) {
+    guard presentedController == nil else { return }
     guard let presentingVC = activePresentationController() else { return }
 
     let controller = UIActivityViewController(
@@ -44,13 +35,13 @@ internal struct UIActivityVC: UIViewControllerRepresentable {
       applicationActivities: content.applicationActivities
     )
     controller.excludedActivityTypes = content.excludedActivityTypes
-    controller.completionWithItemsHandler = { activityType, completed, returnedItems, error in
-      context.coordinator.presentedController = nil
-      isPresented = false
-      callback?(activityType, completed, returnedItems, error)
+    configurePopover(for: controller, presentingFrom: presentingVC)
+    controller.completionWithItemsHandler = { [weak self] activityType, completed, returnedItems, error in
+      self?.presentedController = nil
+      callback(activityType, completed, returnedItems, error)
     }
 
-    context.coordinator.presentedController = controller
+    presentedController = controller
     presentingVC.present(controller, animated: true)
   }
 
@@ -78,9 +69,20 @@ internal struct UIActivityVC: UIViewControllerRepresentable {
     return vc
   }
 
-  // MARK: - Coordinator
+  private func configurePopover(
+    for controller: UIActivityViewController,
+    presentingFrom presentingVC: UIViewController
+  ) {
+    guard let popover = controller.popoverPresentationController else { return }
+    guard let sourceView = presentingVC.view else { return }
 
-  final class Coordinator {
-    weak var presentedController: UIActivityViewController?
+    popover.sourceView = sourceView
+    popover.sourceRect = CGRect(
+      x: sourceView.bounds.midX,
+      y: sourceView.bounds.midY,
+      width: 0,
+      height: 0
+    )
+    popover.permittedArrowDirections = []
   }
 }
