@@ -99,30 +99,30 @@ public struct UIShareLink<L: View>: View {
     @MainActor
     private func presentShareSheet() {
         switch contentSource {
-        case .immediate(let content):
-            presenter.present(content: content, callback: callback)
+            case .immediate(let content):
+                presenter.present(content: content, callback: callback)
 
-        case .prepared(let prepareContent):
-            guard !isPreparing else { return }
-            isPreparing = true
+            case .prepared(let prepareContent):
+                guard !isPreparing else { return }
+                isPreparing = true
 
-            preparationTask?.cancel()
-            preparationTask = Task {
-                defer {
-                    isPreparing = false
-                    preparationTask = nil
+                preparationTask?.cancel()
+                preparationTask = Task {
+                    defer {
+                        isPreparing = false
+                        preparationTask = nil
+                    }
+
+                    do {
+                        let content = try await prepareContent()
+                        try Task.checkCancellation()
+                        presenter.present(content: content, callback: callback)
+                    } catch is CancellationError {
+                        return
+                    } catch {
+                        callback(nil, false, nil, error)
+                    }
                 }
-
-                do {
-                    let content = try await prepareContent()
-                    try Task.checkCancellation()
-                    presenter.present(content: content, callback: callback)
-                } catch is CancellationError {
-                    return
-                } catch {
-                    callback(nil, false, nil, error)
-                }
-            }
         }
     }
 }
